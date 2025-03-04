@@ -6,25 +6,46 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
-  Image,
   Animated,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { authService } from "./api";
 
-export default function index() {
+export default function HomeScreen() {
   const scrollX = useRef(new Animated.Value(0)).current;
   const newsScrollRef = useRef(null);
   const router = useRouter();
 
   useEffect(() => {
+    // Check if user is authenticated
+    const checkAuthStatus = async () => {
+      try {
+        const isAuthenticated = await authService.isAuthenticated();
+        if (!isAuthenticated) {
+          // If not authenticated, redirect to welcome screen
+          router.replace("/welcome");
+        }
+      } catch (error) {
+        console.error("Auth check error:", error);
+        router.replace("/welcome");
+      }
+    };
+
+    checkAuthStatus();
+
+    // Set up news scroll interval
     const interval = setInterval(() => {
-      newsScrollRef.current?.scrollTo({
-        x: (scrollX._value + 300) % 900,
-        animated: true,
-      });
-      scrollX.setValue((scrollX._value + 300) % 900);
+      if (newsScrollRef.current) {
+        const currentX = scrollX.__getValue(); // ✅ Get current value safely
+        newsScrollRef.current.scrollTo({
+          x: (currentX + 300) % 900,
+          animated: true,
+        });
+        scrollX.setValue((currentX + 300) % 900);
+      }
     }, 3000);
+
 
     return () => clearInterval(interval);
   }, []);
@@ -33,7 +54,7 @@ export default function index() {
     <ScrollView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Welcome Back!</Text>
-        <TouchableOpacity>
+        <TouchableOpacity onPress={() => router.push("/profile")}>
           <Ionicons name="person-circle" size={50} color="#2c3e50" />
         </TouchableOpacity>
       </View>
@@ -51,6 +72,10 @@ export default function index() {
         showsHorizontalScrollIndicator={false}
         style={styles.newsFeed}
         scrollEventThrottle={16}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+          { useNativeDriver: false }
+        )}
       >
         <View style={[styles.newsItem, { backgroundColor: "#3498db" }]}>
           <Text style={styles.newsText}>News 1</Text>
@@ -71,16 +96,17 @@ export default function index() {
               key={topic}
               style={styles.categoryCard}
               onPress={() => {
+                // Using lowercase in the route paths for consistency
                 const routeMap = {
-                  Maths: "../maths",
-                  Chemistry: "../chemistry",
-                  Biology: "../biology",
-                  Physics: "../physics",
-                  English: "../english",
+                  Maths: "/maths",
+                  Chemistry: "/chemistry",
+                  Biology: "/biology",
+                  Physics: "/physics",
+                  English: "/english",
                 };
 
                 if (routeMap[topic]) {
-                  router.push(routeMap[topic]); // Navigate to the correct page
+                  router.push(routeMap[topic]); // Using router instead of navigation
                 }
               }}
             >
