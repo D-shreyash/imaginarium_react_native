@@ -10,6 +10,7 @@ import { Ionicons } from "@expo/vector-icons";
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
+
   return (
     <Tabs
       screenOptions={{
@@ -18,15 +19,13 @@ export default function TabLayout() {
         tabBarButton: HapticTab,
         tabBarBackground: TabBarBackground,
         tabBarStyle: Platform.select({
-          ios: {
-            position: "absolute",
-          },
+          ios: { position: "absolute" },
           default: {},
         }),
       }}
     >
       <Tabs.Screen
-        name="index"
+        name="index" // This corresponds to index.js file
         options={{
           title: "Home",
           tabBarIcon: ({ color }) => (
@@ -35,7 +34,7 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="chatbot"
+        name="chatbot" // This would be chatbot.js or chatbot/index.js
         options={{
           title: "Chatbot",
           tabBarIcon: ({ color }) => (
@@ -44,7 +43,7 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="news"
+        name="news" // This would be news.js or news/index.js
         options={{
           title: "News",
           tabBarIcon: ({ color }) => (
@@ -53,7 +52,7 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="profile"
+        name="profile" // This would be profile.js or profile/index.js
         options={{
           title: "Profile",
           tabBarIcon: ({ color }) => (
