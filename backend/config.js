@@ -7,8 +7,7 @@ require("dotenv").config();
 // Use environment variable or hardcoded URI
 const uri =
   process.env.MONGO_URI ||
-  "mongodb+srv://shreyash:qwertyuiop@users.rhpgqdd.mongodb.net/?retryWrites=true&w=majority";
-
+"Your url"
 const client = new MongoClient(uri, {
   serverApi: {
     version: ServerApiVersion.v1,
