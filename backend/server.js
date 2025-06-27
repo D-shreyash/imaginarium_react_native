@@ -225,7 +225,7 @@ server.post("/api/generate-model", async (req, res) => {
   }
 });
 
-const GEMINI_API_KEY = "AIzaSyCS8TBXEz7nmFTfqdadXBA5D9bRerIyMU8";
+const GEMINI_API_KEY = "null";
 
 server.post("/register", async (req, res) => {
   const { email, name, password } = req.body;
