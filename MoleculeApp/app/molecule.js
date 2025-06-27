@@ -1,22 +1,30 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
-import { View, TextInput, Button, StyleSheet } from "react-native";
+import {
+  View,
+  TextInput,
+  Button,
+  StyleSheet,
+  Linking,
+  Alert,
+  Text,
+} from "react-native";
 import * as THREE from "three";
 import axios from "axios";
 
 // Define colors for different elements
 const elementColors = {
-  1: "white", // Hydrogen
-  6: "black", // Carbon
-  7: "blue", // Nitrogen
-  8: "red", // Oxygen
-  9: "lightgreen", // Fluorine
-  15: "orange", // Phosphorus
-  16: "yellow", // Sulfur
-  17: "green", // Chlorine
-  35: "brown", // Bromine
-  53: "purple", // Iodine
+  1: "white",
+  6: "black",
+  7: "blue",
+  8: "red",
+  9: "lightgreen",
+  15: "orange",
+  16: "yellow",
+  17: "green",
+  35: "brown",
+  53: "purple",
 };
 
 // Atom Component
@@ -27,7 +35,7 @@ const Atom = ({ position, color }) => (
   </mesh>
 );
 
-// Bond Component with Correct Rotation
+// Bond Component
 const Bond = ({ start, end }) => {
   const startVec = new THREE.Vector3(...start);
   const endVec = new THREE.Vector3(...end);
@@ -35,13 +43,11 @@ const Bond = ({ start, end }) => {
     .addVectors(startVec, endVec)
     .multiplyScalar(0.5);
 
-  // Calculate bond direction
   const direction = new THREE.Vector3()
     .subVectors(endVec, startVec)
     .normalize();
   const bondLength = startVec.distanceTo(endVec);
 
-  // Calculate rotation using quaternion
   const quaternion = new THREE.Quaternion();
   quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction);
 
@@ -53,76 +59,169 @@ const Bond = ({ start, end }) => {
   );
 };
 
-// Main Component
-export default function molecular_structure() {
+export default function MolecularStructure() {
+  const [modelURL, setModelURL] = useState(null);
   const [moleculeData, setMoleculeData] = useState({ atoms: [], bonds: [] });
   const [formula, setFormula] = useState("H2O");
-  const controlsRef = React.useRef();
+  const [isLoading, setIsLoading] = useState(false);
 
-  useEffect(() => {
-    if (controlsRef.current) {
-      controlsRef.current.enabled = true; // ✅ Ensure controls stay active
+  // Backend API base URL
+  const API_BASE_URL = "http://192.168.50.85:3000/api"; // Change this to your backend URL
+
+  // Calculate centroid of atoms to center molecule
+  const centroid = useMemo(() => {
+    if (moleculeData.atoms.length === 0) return [0, 0, 0];
+
+    const sum = moleculeData.atoms.reduce(
+      (acc, atom) => {
+        acc[0] += atom.position[0];
+        acc[1] += atom.position[1];
+        acc[2] += atom.position[2];
+        return acc;
+      },
+      [0, 0, 0]
+    );
+
+    return sum.map((coord) => coord / moleculeData.atoms.length);
+  }, [moleculeData]);
+
+  // Function to handle AR view
+  const handleViewInAR = () => {
+    if (!modelURL) {
+      Alert.alert(
+        "No Model Available",
+        "Please generate and upload a 3D model first before viewing in AR."
+      );
+      return;
     }
-  }, [moleculeData]); // ✅ Only reset when molecule changes
 
-  const fetchMoleculeData = async () => {
+    const arViewerUrl = `https://silly-stroopwafel-07be66.netlify.app/index.html?model=${encodeURIComponent(
+      modelURL
+    )}`;
+    Linking.openURL(arViewerUrl);
+  };
+
+  // Fetch molecule data and generate 3D model
+  const fetchMoleculeAndGenerateModel = async () => {
     try {
-      const response = await axios.get(
-        `https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/${formula}/JSON`
+      setIsLoading(true);
+      setModelURL(null);
+
+      // Step 1: Fetch molecule data from backend
+      const moleculeResponse = await axios.get(
+        `${API_BASE_URL}/molecule/${encodeURIComponent(formula)}`
       );
 
-      console.log("API Response:", response.data); // Debugging step
+      const { atoms, bonds } = moleculeResponse.data;
+      setMoleculeData({ atoms, bonds });
 
-      const compound = response.data.PC_Compounds?.[0];
+      // Step 2: Generate and upload 3D model
+      const modelResponse = await axios.post(`${API_BASE_URL}/generate-model`, {
+        atoms,
+        bonds,
+        formula,
+      });
 
-      if (!compound || !compound.atoms || !compound.coords) {
-        console.error("Invalid molecule data received.");
-        return;
+      if (modelResponse.data.success) {
+        setModelURL(modelResponse.data.modelURL);
+        Alert.alert("Success", modelResponse.data.message);
+      } else {
+        throw new Error(modelResponse.data.error || "Failed to generate model");
+      }
+    } catch (error) {
+      console.error("Error:", error);
+
+      let errorMessage = "An unexpected error occurred.";
+
+      if (error.response) {
+        // Backend returned an error response
+        errorMessage =
+          error.response.data.error || `Server error: ${error.response.status}`;
+      } else if (error.request) {
+        // Network error
+        errorMessage =
+          "Network error. Please check if the backend server is running.";
+      } else {
+        // Other error
+        errorMessage = error.message;
       }
 
-      const atomIds = compound.atoms.aid;
-      const elements = compound.atoms.element;
-      const conformers = compound.coords?.[0]?.conformers?.[0];
+      Alert.alert("Error", errorMessage);
+      setMoleculeData({ atoms: [], bonds: [] });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-      if (!conformers || !conformers.x || !conformers.y) {
-        console.error("Molecular conformers data is missing.");
-        return;
-      }
+  // Fetch only molecule data for preview (without generating model)
+  const fetchMoleculeDataOnly = async () => {
+    try {
+      setIsLoading(true);
 
-      const atoms = atomIds.map((id, i) => ({
-        id,
-        element: elements[i],
-        position: [
-          conformers.x?.[i] ?? 0,
-          conformers.y?.[i] ?? 0,
-          conformers.z?.[i] ?? 0, // Ensure default values
-        ],
-      }));
+      const response = await axios.get(
+        `${API_BASE_URL}/molecule/${encodeURIComponent(formula)}`
+      );
 
-      const bonds =
-        compound.bonds?.aid1?.map((startIdx, i) => ({
-          start: startIdx - 1,
-          end: compound.bonds.aid2[i] - 1,
-          order: compound.bonds.order[i],
-        })) || [];
-
-      console.log("Processed Molecule Data:", { atoms, bonds }); // Debugging step
-
+      const { atoms, bonds } = response.data;
       setMoleculeData({ atoms, bonds });
     } catch (error) {
       console.error("Error fetching molecule data:", error);
+
+      let errorMessage = "Failed to fetch molecule data.";
+      if (error.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      }
+
+      Alert.alert("Error", errorMessage);
+      setMoleculeData({ atoms: [], bonds: [] });
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
     <View style={styles.container}>
       <TextInput
-        placeholder="Enter Chemical Formula"
+        placeholder="Enter Chemical Formula (e.g., H2O, CH4)"
         value={formula}
         onChangeText={setFormula}
         style={styles.input}
+        editable={!isLoading}
       />
-      <Button title="Generate 3D Model" onPress={fetchMoleculeData} />
+
+      <View style={styles.buttonContainer}>
+        <Button
+          title={isLoading ? "Loading..." : "Preview Molecule"}
+          onPress={fetchMoleculeDataOnly}
+          disabled={isLoading}
+        />
+      </View>
+
+      <View style={styles.buttonContainer}>
+        <Button
+          title={isLoading ? "Generating..." : "Generate 3D Model & Upload"}
+          onPress={fetchMoleculeAndGenerateModel}
+          disabled={isLoading}
+        />
+      </View>
+
+      <View style={styles.buttonContainer}>
+        <Button
+          title={modelURL ? "View in AR" : "View in AR (Generate model first)"}
+          onPress={handleViewInAR}
+          disabled={!modelURL}
+        />
+      </View>
+
+      {modelURL && (
+        <View style={styles.infoContainer}>
+          <Text style={styles.infoText}>✅ Model uploaded successfully!</Text>
+          <Text style={styles.urlText} numberOfLines={1}>
+            URL: {modelURL}
+          </Text>
+        </View>
+      )}
+
       <Canvas style={styles.canvas}>
         <ambientLight intensity={0.5} />
         <pointLight position={[10, 10, 10]} />
@@ -131,25 +230,43 @@ export default function molecular_structure() {
         {moleculeData.atoms.map((atom, idx) => (
           <Atom
             key={idx}
-            position={atom.position}
+            position={[
+              atom.position[0] - centroid[0],
+              atom.position[1] - centroid[1],
+              atom.position[2] - centroid[2],
+            ]}
             color={elementColors[atom.element] || "gray"}
           />
         ))}
 
-        {/* Render Bonds with Correct Angles */}
-        {moleculeData.bonds.map((bond, idx) => (
-          <Bond
-            key={idx}
-            start={moleculeData.atoms[bond.start].position}
-            end={moleculeData.atoms[bond.end].position}
-          />
-        ))}
+        {/* Render Bonds */}
+        {moleculeData.bonds.map((bond, idx) => {
+          const start = moleculeData.atoms[bond.start]?.position;
+          const end = moleculeData.atoms[bond.end]?.position;
+          if (!start || !end) return null;
+
+          return (
+            <Bond
+              key={idx}
+              start={[
+                start[0] - centroid[0],
+                start[1] - centroid[1],
+                start[2] - centroid[2],
+              ]}
+              end={[
+                end[0] - centroid[0],
+                end[1] - centroid[1],
+                end[2] - centroid[2],
+              ]}
+            />
+          );
+        })}
 
         <OrbitControls
           enableDamping={true}
           dampingFactor={0.1}
           rotateSpeed={0.5}
-          makeDefault // ✅ Ensure OrbitControls is the active camera controller
+          makeDefault
         />
       </Canvas>
     </View>
@@ -172,9 +289,32 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#7f8c8d",
   },
+  buttonContainer: {
+    marginVertical: 5,
+  },
+  infoContainer: {
+    backgroundColor: "#d5edda",
+    padding: 10,
+    borderRadius: 8,
+    marginVertical: 10,
+    borderColor: "#c3e6cb",
+    borderWidth: 1,
+  },
+  infoText: {
+    color: "#155724",
+    fontWeight: "bold",
+    textAlign: "center",
+  },
+  urlText: {
+    color: "#155724",
+    fontSize: 12,
+    textAlign: "center",
+    marginTop: 5,
+  },
   canvas: {
     height: 400,
     backgroundColor: "#ffffff",
     borderRadius: 10,
+    marginTop: 10,
   },
 });

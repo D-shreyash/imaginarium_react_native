@@ -1,12 +1,10 @@
-import { View, Text } from "react-native";
-import React from "react";
+import Home from "../Home";
+import Information from "../Information";
+import AuthScreen from "../auth/AuthScreen";
+import React, { useState } from "react";
 
-const profile = () => {
-  return (
-    <View>
-      <Text>profile</Text>
-    </View>
-  );
+const index = () => {
+  return <Information />;
 };
 
-export default profile;
+export default index;

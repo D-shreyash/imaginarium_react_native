@@ -11,6 +11,21 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "express": "^4.21.2"
+    "@gltf-transform/core": "^4.1.4",
+    "@gltf-transform/functions": "^4.1.4",
+    "@google/genai": "^0.7.0",
+    "axios": "^1.8.4",
+    "cloudinary": "^2.6.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "gl-matrix": "^3.4.3",
+    "mongodb": "^6.15.0",
+    "mongoose": "^8.13.2",
+    "multer": "^2.0.1",
+    "node-three-gltf": "^2.0.2",
+    "three": "^0.177.0",
+    "three-gltf-exporter": "^0.0.1",
+    "uuid": "^11.1.0"
   }
 }
