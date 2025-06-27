@@ -32,9 +32,9 @@ server.get("/", (req, res) => {
 
 // Configure Cloudinary
 cloudinary.config({
-  cloud_name: "dfzmx7rgc",
-  api_key: "733635394446143",
-  api_secret: "R4uB0_zUTKXvvTM79XhgXFUe6fc",
+  cloud_name: "null",
+  api_key: "null",
+  api_secret: "null",
 });
 
 // Configure multer for memory storage
